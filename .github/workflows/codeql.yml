@@ -41,19 +41,19 @@ jobs:
             build-mode: none
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Only the Go half needs the toolchain; the JavaScript extractor works
       # on the sources as they are.
       - if: matrix.language == 'go'
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26"
           cache: true
           # Always the newest patch release: security fixes land there.
           check-latest: true
 
-      - uses: github/codeql-action/init@v4
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -68,9 +68,9 @@ jobs:
               - internal/web/static/htmx.min.js
 
       - if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@v4
+        uses: github/codeql-action/autobuild@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
 
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           # One analysis per language for this commit.
           category: /language:${{ matrix.language }}
