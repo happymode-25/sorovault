@@ -369,6 +369,7 @@ its hash is known to differ.`,
 
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the full result as JSON")
 	cmd.Flags().BoolVar(&all, "all", false, "run one sweep over every contract on the network")
+	registerContractIDCompletion(cmd, "all")
 	return cmd
 }
 
@@ -502,6 +503,8 @@ can be piped straight into other tooling.`,
 	cmd.Flags().StringVar(&wasmHash, "wasm-hash", "", "show a specific version instead of the current one")
 	cmd.Flags().StringVar(&function, "function", "", "show only this function")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the ABI as JSON")
+	registerContractIDCompletion(cmd)
+	registerNetworkCompletion(cmd)
 	return cmd
 }
 
@@ -549,6 +552,8 @@ read with "get --wasm-hash".`,
 
 	cmd.Flags().StringVar(&network, "network", "", "network to read from (default: the network RPC_URL serves)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the versions as JSON")
+	registerContractIDCompletion(cmd)
+	registerNetworkCompletion(cmd)
 	return cmd
 }
 
@@ -667,6 +672,8 @@ and a README, ready to publish or install from a tarball.`,
 	cmd.Flags().BoolVar(&asPackage, "package", false, "write a complete npm package instead of one file")
 	cmd.Flags().StringVar(&packageName, "name", "", "npm package name for --package (@scope/name)")
 	cmd.Flags().StringVar(&pkgVersion, "package-version", "", "version for --package (default: derived from the WASM hash)")
+	registerContractIDCompletion(cmd)
+	registerNetworkCompletion(cmd)
 	return cmd
 }
 

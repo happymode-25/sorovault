@@ -519,6 +519,37 @@ the network. It reads the same configuration as everything else, so a
 deployment missing its `DATABASE_URL` is reported as a configuration error
 rather than a passing check.
 
+### Shell completion
+
+`sorovault completion bash|zsh|fish|powershell` prints a completion script (this
+is Cobra's built-in command; run it once per shell). Then `Tab` completes the
+arguments that are otherwise awkward to type:
+
+```console
+$ sorovault get <Tab>
+CDZZXVGUCLBUTE3WDD6TF2NXPTBPOYTVPPBBIZMSPVIQLUG226XJ4PAN  zkvote
+CBQZ…
+
+$ sorovault get CDZZ --network <Tab>
+testnet  futurenet  mainnet
+```
+
+`get`, `versions`, `refresh` and `codegen` complete contract IDs from the
+registry, and `--network` completes the network names. Named contracts carry
+their name as a description, so the candidate is readable rather than a column
+of 56-character identifiers.
+
+Two rules shape the behaviour, because completion runs inside the user's shell
+prompt on every `Tab`:
+
+- **It never fails noisily.** A database that is down produces no candidates
+  and no error, rather than text pasted into the command line.
+- **It is bounded.** The lookup is capped at a fraction of a second and at 200
+  candidates, so a slow database or a large registry cannot hold the prompt.
+
+Completion reads the registry only; it never contacts the network. `refresh`
+takes contract IDs or `--all`, so it offers no IDs once `--all` is set.
+
 ## Typed clients
 
 SoroVault generates a typed TypeScript client for any registered contract —
