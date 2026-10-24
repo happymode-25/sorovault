@@ -174,7 +174,7 @@ func TestExampleForEveryContainerShape(t *testing.T) {
 			{Name: "totals", Type: model.Type{Kind: model.KindMap,
 				Key: ptr(model.Scalar(model.KindSymbol)), Value: ptr(model.Scalar(model.KindI128))}},
 			{Name: "two", Type: model.Type{Kind: model.KindTuple,
-				Elements: []model.Type{model.Scalar(model.KindU32), model.Type{Kind: model.KindUDT, Name: "Pair"}}}},
+				Elements: []model.Type{model.Scalar(model.KindU32), {Kind: model.KindUDT, Name: "Pair"}}}},
 			{Name: "outcome", Type: model.Type{Kind: model.KindResult,
 				Ok: ptr(model.Type{Kind: model.KindUDT, Name: "Params"}), Error: ptr(model.Scalar(model.KindError))}},
 		}}},
