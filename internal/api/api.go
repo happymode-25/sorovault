@@ -79,6 +79,7 @@ func (s *Server) Routes() chi.Router {
 	r.Get("/contracts/{id}/functions", s.listFunctions)
 	r.Get("/contracts/{id}/functions/{fn}", s.getFunction)
 	r.Get("/contracts/{id}/functions/{fn}/schema.json", s.getFunctionSchema)
+	r.Get("/contracts/{id}/functions/{fn}/example.json", s.getFunctionExample)
 	r.Get("/contracts/{id}/client.ts", s.getTypeScriptClient)
 	r.Get("/stats", s.getStats)
 	r.Get("/upgrades", s.listUpgrades)
@@ -607,6 +608,52 @@ func (s *Server) getFunctionSchema(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/schema+json")
 	_, _ = w.Write(schema) //nolint:gosec // generated JSON Schema, served as application/schema+json
+}
+
+// getFunctionExample serves GET
+// /api/contracts/{id}/functions/{fn}/example.json: one example argument list
+// for the function.
+//
+// The document is the placeholder argument object the function's JSON Schema
+// validates, so a client can take it, fill in the fields it cares about and
+// send its first request. It is derived from the same stored interface the
+// schema is, which keeps the two from drifting apart.
+func (s *Server) getFunctionExample(w http.ResponseWriter, r *http.Request) {
+	contractID := chi.URLParam(r, "id")
+	fnName := chi.URLParam(r, "fn")
+
+	network, err := s.network(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	wasmHash := strings.TrimSpace(r.URL.Query().Get("wasm_hash"))
+	stored, err := s.reg.Store().GetSpec(r.Context(), network, contractID, wasmHash)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	fn, ok := stored.Interface.Function(fnName)
+	if !ok {
+		writeError(w, http.StatusNotFound,
+			"no function "+strconv.Quote(fnName)+" in contract "+contractID)
+		return
+	}
+
+	example, err := codegen.Example(stored.Interface, fn, codegen.Source{
+		ContractID: stored.ContractID,
+		Network:    stored.Network,
+		WasmHash:   stored.WasmHash,
+	})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(example) //nolint:gosec // generated example, served as application/json
 }
 
 // listFunctions serves GET /api/contracts/{id}/functions.
