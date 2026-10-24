@@ -214,7 +214,16 @@ type ListFilter struct {
 	// DefaultLimit; anything above MaxLimit is clamped to MaxLimit.
 	Limit int
 	// Offset is the number of rows to skip.
+	//
+	// Deprecated: offsets grow slower as the registry grows, and rows
+	// added while a client pages make offset pages repeat and skip each
+	// other. Cursor replaces it; it is honored for compatibility.
 	Offset int
+	// Cursor continues from where a previous page ended. An empty cursor
+	// starts from the top, so a first request carries none. A cursor and
+	// an offset are exclusive: ask for one page in one of the two ways.
+	// A cursor the store cannot read is ErrMalformedCursor.
+	Cursor string
 }
 
 // Paging bounds for ListFilter.
@@ -265,6 +274,9 @@ type ContractPage struct {
 	Contracts []Contract `json:"contracts"`
 	// Total is how many contracts match the filter, ignoring paging.
 	Total int `json:"total"`
+	// Next carries the cursor of the following page when this page did
+	// not reach the end of the matches. Empty means the walk is over.
+	Next string `json:"next"`
 }
 
 // WasmFilter selects the contracts that run a given WASM hash.
