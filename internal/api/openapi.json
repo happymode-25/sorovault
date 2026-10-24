@@ -222,6 +222,22 @@
         }
       }
     },
+    "/api/contracts/{id}/events": {
+      "get": {
+        "summary": "List a contract's event definitions",
+        "operationId": "listEvents",
+        "description": "The events a contract declares, each with its topics, data fields and the data payload's packing, for the indexers that react to them without reading the whole interface. A contract that declares none answers with an empty list.",
+        "parameters": [
+          { "$ref": "#/components/parameters/id" },
+          { "$ref": "#/components/parameters/network" },
+          { "$ref": "#/components/parameters/wasmHash" }
+        ],
+        "responses": {
+          "200": { "description": "The event definitions.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EventList" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
     "/api/contracts/{id}/versions": {
       "get": {
         "summary": "Every stored interface version, newest first",
@@ -721,6 +737,19 @@
         },
         "required": ["name", "signature"],
         "additionalProperties": false
+      },
+      "EventList": {
+        "type": "object",
+        "properties": {
+          "contract_id": { "$ref": "#/components/schemas/ContractID" },
+          "network": { "type": "string" },
+          "wasm_hash": { "$ref": "#/components/schemas/WasmHash" },
+          "events": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Event" }
+          }
+        },
+        "required": ["contract_id", "network", "wasm_hash", "events"]
       },
       "JSONSchema": {
         "type": "object",

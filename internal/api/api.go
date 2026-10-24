@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/soroworks/sorovault/internal/codegen"
+	"github.com/soroworks/sorovault/internal/model"
 	"github.com/soroworks/sorovault/internal/refresher"
 	"github.com/soroworks/sorovault/internal/registry"
 	"github.com/soroworks/sorovault/internal/spec"
@@ -77,6 +78,7 @@ func (s *Server) Routes() chi.Router {
 	r.Post("/contracts/{id}/refresh", s.refreshContract)
 	r.Get("/contracts/{id}/versions", s.listVersions)
 	r.Get("/contracts/{id}/functions", s.listFunctions)
+	r.Get("/contracts/{id}/events", s.listEvents)
 	r.Get("/contracts/{id}/functions/{fn}", s.getFunction)
 	r.Get("/contracts/{id}/functions/{fn}/schema.json", s.getFunctionSchema)
 	r.Get("/contracts/{id}/functions/{fn}/example.json", s.getFunctionExample)
@@ -686,6 +688,47 @@ func (s *Server) listFunctions(w http.ResponseWriter, r *http.Request) {
 		Network:    stored.Network,
 		WasmHash:   stored.WasmHash,
 		Functions:  functions,
+	})
+}
+
+// listEvents serves GET /api/contracts/{id}/events: the event definitions a
+// contract declares, for the indexers that react to them.
+//
+// An indexer usually wants only the events and not the whole interface, which
+// is one large document. Each event is the definition the interface holds
+// itself — its name, topic names, parameters with their types and whether
+// each is a topic or data, and the data payload's packing — so values here
+// match the ones the interface document serves, `?wasm_hash=` selects a
+// superseded version the same way, and the shapes stay in step by
+// construction.
+func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
+	contractID := chi.URLParam(r, "id")
+
+	network, err := s.network(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	wasmHash := strings.TrimSpace(r.URL.Query().Get("wasm_hash"))
+	stored, err := s.reg.Store().GetSpec(r.Context(), network, contractID, wasmHash)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	events := stored.Interface.Events
+	if events == nil {
+		// A contract with no events still answers with an empty list,
+		// the way the interface document answers with [].
+		events = []model.Event{}
+	}
+
+	writeJSON(w, http.StatusOK, eventListResponse{
+		ContractID: stored.ContractID,
+		Network:    stored.Network,
+		WasmHash:   stored.WasmHash,
+		Events:     events,
 	})
 }
 
