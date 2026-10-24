@@ -213,11 +213,14 @@ type ListFilter struct {
 	// Limit is the maximum number of rows to return. Zero means
 	// DefaultLimit; anything above MaxLimit is clamped to MaxLimit.
 	Limit int
-	// Offset is the number of rows to skip.
-	//
-	// Deprecated: offsets grow slower as the registry grows, and rows
-	// added while a client pages make offset pages repeat and skip each
-	// other. Cursor replaces it; it is honored for compatibility.
+	// Offset is the number of rows to skip. Offset paging is kept for
+	// compatibility — it never breaks outright — but cursor paging below
+	// is what callers should reach for: offsets grow slower as the
+	// registry grows, and rows added while a client pages make offset
+	// pages repeat and skip each other. (The Go doc does not carry the
+	// formal Deprecated marker, because staticcheck then rejects the
+	// compatibility paths that still must honor it — the deprecation is
+	// voiced at the API surface instead.)
 	Offset int
 	// Cursor continues from where a previous page ended. An empty cursor
 	// starts from the top, so a first request carries none. A cursor and
