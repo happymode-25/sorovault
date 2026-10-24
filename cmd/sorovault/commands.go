@@ -648,10 +648,10 @@ install from a tarball.`,
 				}
 
 				var source string
-				switch {
-				case lang == "md" || lang == "markdown":
+				switch lang {
+				case "md", "markdown":
 					source, err = codegen.Markdown(stored.Interface, src)
-				case lang == "examples":
+				case "examples":
 					var body []byte
 					body, err = codegen.Examples(stored.Interface, src)
 					source = string(body)
