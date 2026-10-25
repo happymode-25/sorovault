@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/soroworks/sorovault/internal/codegen"
+	"github.com/soroworks/sorovault/internal/model"
 	"github.com/soroworks/sorovault/internal/refresher"
 	"github.com/soroworks/sorovault/internal/registry"
 	"github.com/soroworks/sorovault/internal/spec"
@@ -36,9 +37,10 @@ import (
 
 // Server holds the API's dependencies.
 type Server struct {
-	reg   *registry.Registry
-	log   *slog.Logger
-	cache *interfaceCache
+	reg       *registry.Registry
+	log       *slog.Logger
+	cache     *interfaceCache
+	rateLimit *clientLimiter
 
 	// lastSweep, when set, reports the most recent automatic refresh
 	// sweep. It is nil when refresh is disabled, and GET /api/stats then
@@ -67,16 +69,17 @@ func (s *Server) Routes() chi.Router {
 	r.Use(compressResponses("application/json", "text/plain"))
 
 	r.Get("/contracts", s.listContracts)
-	r.Post("/contracts", s.registerContract)
+	r.Post("/contracts", s.rateLimited(s.registerContract))
 	r.Post("/contracts:batch", s.batchRegisterContracts)
 	r.Get("/wasm/{hash}", s.getWasmSpec)
 	r.Post("/wasm/{hash}", s.catalogWasm)
 	r.Get("/wasm/{hash}/contracts", s.listWasmContracts)
 	r.Get("/contracts/{id}", s.getContract)
 	r.Put("/contracts/{id}/source", s.updateContractSource)
-	r.Post("/contracts/{id}/refresh", s.refreshContract)
+	r.Post("/contracts/{id}/refresh", s.rateLimited(s.refreshContract))
 	r.Get("/contracts/{id}/versions", s.listVersions)
 	r.Get("/contracts/{id}/functions", s.listFunctions)
+	r.Get("/contracts/{id}/events", s.listEvents)
 	r.Get("/contracts/{id}/functions/{fn}", s.getFunction)
 	r.Get("/contracts/{id}/functions/{fn}/schema.json", s.getFunctionSchema)
 	r.Get("/contracts/{id}/functions/{fn}/example.json", s.getFunctionExample)
@@ -464,11 +467,12 @@ func (s *Server) listContracts(w http.ResponseWriter, r *http.Request) {
 		Query:   q.Get("q"),
 		// The exact-name filters are repeatable, and every one of them has
 		// to match.
-		Functions: q["function"],
-		Types:     q["type"],
-		Limit:     intParam(q.Get("limit"), 0),
-		Offset:    offset,
-		Cursor:    cursor,
+		Functions:  q["function"],
+		Types:      q["type"],
+		Implements: q["implements"],
+		Limit:      intParam(q.Get("limit"), 0),
+		Offset:     offset,
+		Cursor:     cursor,
 	}
 	filter.Normalize()
 
@@ -490,7 +494,8 @@ func (s *Server) listContracts(w http.ResponseWriter, r *http.Request) {
 // getContract serves GET /api/contracts/{id}, returning the decoded ABI.
 //
 // The optional wasm_hash parameter selects a superseded version; without it
-// the contract's current interface is returned.
+// the contract's current interface is returned. ?download=1 asks the browser
+// to save the document under a name of its own rather than display it.
 func (s *Server) getContract(w http.ResponseWriter, r *http.Request) {
 	contractID := chi.URLParam(r, "id")
 
@@ -529,11 +534,17 @@ func (s *Server) getContract(w http.ResponseWriter, r *http.Request) {
 		s.cache.add(key, cached)
 	}
 
+	// The header has to be set before the body is written.
+	if r.URL.Query().Get("download") != "" {
+		w.Header().Set("Content-Disposition", `attachment; filename="`+ABIFilename(contractID, cacheHash)+`"`)
+	}
+
 	writeJSON(w, http.StatusOK, contractResponse{
 		ContractID:   contract.ContractID,
 		Network:      contract.Network,
 		WasmHash:     cacheHash,
 		Name:         contract.Name,
+		Implements:   contract.Implements,
 		SourceURL:    contract.SourceURL,
 		SourceCommit: contract.SourceCommit,
 		FirstSeen:    contract.FirstSeen.UTC(),
@@ -542,6 +553,26 @@ func (s *Server) getContract(w http.ResponseWriter, r *http.Request) {
 		Current:      cacheHash == contract.CurrentWasmHash,
 		Interface:    json.RawMessage(cached.body),
 	})
+}
+
+// ABIFilename names the file a downloaded interface is saved as: the contract
+// it belongs to, and the short form of the WASM hash it was decoded from, so
+// two versions of one contract do not collide.
+//
+// The browse page names the file the same way, so the two cannot disagree
+// about what a download will be called.
+func ABIFilename(contractID, wasmHash string) string {
+	return contractID + "." + shortHash(wasmHash) + ".abi.json"
+}
+
+// shortHash is the head of a WASM hash: enough to tell two versions of a
+// contract apart, short enough for a filename.
+func shortHash(hash string) string {
+	const n = 12
+	if len(hash) <= n {
+		return hash
+	}
+	return hash[:n]
 }
 
 // getFunction serves GET /api/contracts/{id}/functions/{fn}.
@@ -700,6 +731,47 @@ func (s *Server) listFunctions(w http.ResponseWriter, r *http.Request) {
 		Network:    stored.Network,
 		WasmHash:   stored.WasmHash,
 		Functions:  functions,
+	})
+}
+
+// listEvents serves GET /api/contracts/{id}/events: the event definitions a
+// contract declares, for the indexers that react to them.
+//
+// An indexer usually wants only the events and not the whole interface, which
+// is one large document. Each event is the definition the interface holds
+// itself — its name, topic names, parameters with their types and whether
+// each is a topic or data, and the data payload's packing — so values here
+// match the ones the interface document serves, `?wasm_hash=` selects a
+// superseded version the same way, and the shapes stay in step by
+// construction.
+func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
+	contractID := chi.URLParam(r, "id")
+
+	network, err := s.network(r)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	wasmHash := strings.TrimSpace(r.URL.Query().Get("wasm_hash"))
+	stored, err := s.reg.Store().GetSpec(r.Context(), network, contractID, wasmHash)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	events := stored.Interface.Events
+	if events == nil {
+		// A contract with no events still answers with an empty list,
+		// the way the interface document answers with [].
+		events = []model.Event{}
+	}
+
+	writeJSON(w, http.StatusOK, eventListResponse{
+		ContractID: stored.ContractID,
+		Network:    stored.Network,
+		WasmHash:   stored.WasmHash,
+		Events:     events,
 	})
 }
 

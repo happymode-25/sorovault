@@ -96,6 +96,7 @@ type contractResponse struct {
 	Network      string     `json:"network"`
 	WasmHash     string     `json:"wasm_hash"`
 	Name         string     `json:"name,omitempty"`
+	Implements   []string   `json:"implements"`
 	SourceURL    string     `json:"source_url,omitempty"`
 	SourceCommit string     `json:"source_commit,omitempty"`
 	FirstSeen    time.Time  `json:"first_seen"`
@@ -130,6 +131,13 @@ type functionListResponse struct {
 type functionSummary struct {
 	Name      string `json:"name"`
 	Signature string `json:"signature"`
+}
+
+type eventListResponse struct {
+	ContractID string        `json:"contract_id"`
+	Network    string        `json:"network"`
+	WasmHash   string        `json:"wasm_hash"`
+	Events     []model.Event `json:"events"`
 }
 
 type versionsResponse struct {
