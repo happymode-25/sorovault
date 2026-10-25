@@ -675,6 +675,30 @@ Type mappings follow the Stellar CLI's own bindings (`u64`→`bigint`,
 the SDK unchanged. It requires `@stellar/stellar-sdk` 14 or later and
 `buffer`.
 
+### Staleness checks
+
+Every generated file embeds the interface version it was built from: the
+`wasmHash` constant next to `contractId` and `networkName`, also visible in
+the file header. When the contract upgrades, a client generated for the old
+interface keeps connecting but calls `vote` against functions that may no
+longer exist. `assertSameWasm(liveHash)` compares the embedded constant with
+the live hash — `GET /api/contracts/{id}` returns `wasm_hash` — warns on a
+mismatch, and returns whether the client still matches:
+
+```ts
+import { assertSameWasm, connect } from "./zkvote";
+
+const meta = await fetch("https://sorovault.example/api/contracts/CDZZ…4PAN").then(r => r.json());
+if (!assertSameWasm(meta.wasm_hash)) {
+  // The contract was upgraded: regenerate, or keep the behavior your
+  // app was built against with the pinned client ?wasm_hash= serves.
+}
+```
+
+Checking is opt-in: nothing happens unless the application calls it, so
+offline use stays untouched, and a project that commits its client keeps it
+byte-identical until the interface actually changes.
+
 ### Packages
 
 `--package` writes a complete npm package instead of a bare file, so a client
