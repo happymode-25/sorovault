@@ -71,15 +71,18 @@ func TestContractsCursorPagination(t *testing.T) {
 	}
 
 	t.Run("a walk with pages of one reaches every contract once", func(t *testing.T) {
-		t.Parallel()
-
+		// Not parallel with the arrival subtest on purpose: with both
+		// walking at once, the newcomer can land between this walk's
+		// pages, and then a count it did not seed is exactly the
+		// behaviour the next subtest documents.
 		seen := collect(t, "")
 		require.Len(t, seen, 3)
 		assert.Len(t, uniqueStrings(seen), 3, "no contract repeats across page boundaries")
 	})
 
 	t.Run("an arrival between pages is never repeated", func(t *testing.T) {
-		t.Parallel()
+		// The arrival below must not race the first subtest's count
+		// assertion, so this runs after it rather than beside it.
 
 		// A contract lands in the registry while a client is mid-walk: the
 		// offset walk shifts every further page down by one and returns
