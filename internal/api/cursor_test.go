@@ -55,14 +55,13 @@ func TestContractsCursorPagination(t *testing.T) {
 			var page struct {
 				Contracts []struct {
 					ContractID string `json:"contract_id"`
-					Network    string `json:"network"`
 				} `json:"contracts"`
 				Next string `json:"next"`
 			}
 			require.NoError(t, json.Unmarshal(raw, &page), string(raw))
 
 			for _, c := range page.Contracts {
-				seen = append(seen, c.Network+"/"+c.ContractID)
+				seen = append(seen, c.ContractID)
 			}
 			if page.Next == "" {
 				return seen
@@ -79,20 +78,30 @@ func TestContractsCursorPagination(t *testing.T) {
 		assert.Len(t, uniqueStrings(seen), 3, "no contract repeats across page boundaries")
 	})
 
-	t.Run("an arrival between pages is seen exactly once", func(t *testing.T) {
+	t.Run("an arrival between pages is never repeated", func(t *testing.T) {
 		t.Parallel()
 
 		// A contract lands in the registry while a client is mid-walk: the
-		// offset walk would shift every row down and repeat the row at the
-		// boundary, which is the failure the cursor is for.
+		// offset walk shifts every further page down by one and returns
+		// the row at the boundary twice. Whether the newcomer itself is
+		// inside this walk depends on where its refresh time sorts it
+		// against the cursor, so a cursor walk guarantees the started-with
+		// rows are reached and nothing doubles up, and the newcomer's
+		// exactly-once turn is on the next walk.
 		idNew := validContractID(t, 0xDD)
 		h.fake.Deploy(idNew, moduleWith(t, "balance"))
 		resp, raw := h.do(t, http.MethodPost, "/api/contracts", `{"contract_id":"`+idNew+`"}`)
 		require.Equal(t, http.StatusCreated, resp.StatusCode, string(raw))
 
 		seen := collect(t, "")
-		require.Len(t, seen, 4, "the newcomer is in the walk")
-		assert.Len(t, uniqueStrings(seen), 4, "and nothing repeats or is skipped")
+		for _, want := range []string{idA, idB, idC} {
+			assert.Contains(t, seen, want, "the walk that started before the arrival still reaches it")
+		}
+		assert.Len(t, uniqueStrings(seen), len(seen), "nothing repeats")
+
+		again := collect(t, "")
+		require.Len(t, again, 4, "the walk started after the arrival covers it too")
+		assert.Len(t, uniqueStrings(again), 4, "and exactly once")
 	})
 
 	t.Run("the last page carries no next", func(t *testing.T) {

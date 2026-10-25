@@ -381,7 +381,7 @@ func runStoreSuite(t *testing.T, newStore factory) {
 		assert.Equal(t, listed, seen, "a cursor walk covers the same rows in the same order")
 	})
 
-	t.Run("a contract added while a client pages is not skipped or repeated", func(t *testing.T) {
+	t.Run("a contract added while a client pages is never repeated", func(t *testing.T) {
 		s := newStore(t)
 		ctx := context.Background()
 
@@ -393,17 +393,19 @@ func runStoreSuite(t *testing.T, newStore factory) {
 		require.NoError(t, err)
 		require.NotEmpty(t, firstPage.Next, "two contracts over a limit of one leave a next page")
 
-		// The arrival the offset walk would trip over: a contract lands
-		// between the first page and the second.
+		// The arrival the offset walk trips over: the fresh row shifts
+		// every page after it down by one, and the row at the boundary is
+		// returned twice. A cursor walk has no positions to shift, so the
+		// rows must not double up no matter where the newcomer sorts.
 		require.NoError(t, s.Save(ctx, contract(idC, "testnet", "h1"), iface("f")))
 
-		all := []string{firstPage.Contracts[0].Network + "/" + firstPage.Contracts[0].ContractID}
+		walked := []string{firstPage.Contracts[0].Network + "/" + firstPage.Contracts[0].ContractID}
 		cursor := firstPage.Next
 		for {
 			page, err := s.ListContracts(ctx, store.ListFilter{Limit: 1, Cursor: cursor})
 			require.NoError(t, err)
 			for _, c := range page.Contracts {
-				all = append(all, c.Network+"/"+c.ContractID)
+				walked = append(walked, c.Network+"/"+c.ContractID)
 			}
 			if page.Next == "" {
 				break
@@ -411,8 +413,33 @@ func runStoreSuite(t *testing.T, newStore factory) {
 			cursor = page.Next
 		}
 
-		require.Len(t, all, 3, "the newcomer is in the walk")
-		assert.Len(t, unique(all), 3, "and nothing repeats, which is what offset pages do")
+		// Every contract the walk started with is still reached — where it
+		// sits on the page or after it — and none of them twice. Whether
+		// the newcomer itself is inside this walk depends on where its
+		// refresh time sorts it against the cursor, so its turn is
+		// asserted on a walk that starts after it exists.
+		for _, want := range []string{"testnet/" + idA, "testnet/" + idB} {
+			assert.Contains(t, walked, want, "the walk that started before the arrival still reaches it")
+		}
+		assert.Len(t, unique(walked), len(walked), "nothing repeats")
+
+		// And a walk that starts after the arrival covers everything
+		// — the newcomer included — exactly once.
+		var settled []string
+		cursor = ""
+		for {
+			page, err := s.ListContracts(ctx, store.ListFilter{Limit: 2, Cursor: cursor})
+			require.NoError(t, err)
+			for _, c := range page.Contracts {
+				settled = append(settled, c.Network+"/"+c.ContractID)
+			}
+			if page.Next == "" {
+				break
+			}
+			cursor = page.Next
+		}
+		require.Len(t, settled, 3, "the newcomer is in the walk that started after it exists")
+		assert.Len(t, unique(settled), 3, "and exactly once")
 	})
 
 	t.Run("the same contract on two networks pages without a gap", func(t *testing.T) {
