@@ -564,6 +564,7 @@ func newCodegenCmd() *cobra.Command {
 		wasmHash    string
 		lang        string
 		output      string
+		withZod     bool
 		asPackage   bool
 		packageName string
 		pkgVersion  string
@@ -601,6 +602,9 @@ install from a tarball.`,
 			} else if pkgVersion != "" {
 				return fmt.Errorf("--package-version only applies to --package")
 			}
+			if withZod && lang != "ts" && lang != "typescript" {
+				return fmt.Errorf("--zod generates TypeScript schemas, so it needs --lang ts")
+			}
 
 			return withApp(cmd.Context(), func(ctx context.Context, a *app) error {
 				net := network
@@ -620,12 +624,14 @@ install from a tarball.`,
 					ContractID: stored.ContractID,
 					Network:    stored.Network,
 					WasmHash:   stored.WasmHash,
+					WithZod:    withZod,
 				}
 
 				if asPackage {
 					files, err := codegen.Package(stored.Interface, src, codegen.PackageOptions{
 						Name:    packageName,
 						Version: pkgVersion,
+						WithZod: withZod,
 					})
 					if err != nil {
 						return err
@@ -679,6 +685,7 @@ install from a tarball.`,
 	cmd.Flags().StringVar(&network, "network", "", "network to read from (default: the network RPC_URL serves)")
 	cmd.Flags().StringVar(&wasmHash, "wasm-hash", "", "generate for a specific version instead of the current one")
 	cmd.Flags().StringVar(&lang, "lang", "ts", "output format (ts, md or examples)")
+	cmd.Flags().BoolVar(&withZod, "zod", false, "append Zod schemas to the TypeScript output (ts only)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "write to this file, or this directory with --package")
 	cmd.Flags().BoolVar(&asPackage, "package", false, "write a complete npm package instead of one file")
 	cmd.Flags().StringVar(&packageName, "name", "", "npm package name for --package (@scope/name)")

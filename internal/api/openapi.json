@@ -294,6 +294,7 @@
           { "$ref": "#/components/parameters/id" },
           { "$ref": "#/components/parameters/network" },
           { "$ref": "#/components/parameters/wasmHash" },
+          { "name": "zod", "in": "query", "description": "A non-empty value appends Zod schemas for the declared types and function arguments, for runtime validation.", "schema": { "type": "string" } },
           { "name": "download", "in": "query", "description": "A non-empty value sets Content-Disposition: attachment.", "schema": { "type": "string" } }
         ],
         "responses": {

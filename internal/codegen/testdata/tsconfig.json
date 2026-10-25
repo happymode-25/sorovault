@@ -7,5 +7,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "files": ["zkvote.client.ts"]
+  "files": ["zkvote.client.ts", "zkvote.client.zod.ts"]
 }

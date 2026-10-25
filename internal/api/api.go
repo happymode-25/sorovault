@@ -255,6 +255,7 @@ func (s *Server) getTypeScriptClient(w http.ResponseWriter, r *http.Request) {
 		ContractID: stored.ContractID,
 		Network:    stored.Network,
 		WasmHash:   stored.WasmHash,
+		WithZod:    r.URL.Query().Get("zod") != "",
 	})
 	if err != nil {
 		// The interface decoded, but cannot be expressed as TypeScript —

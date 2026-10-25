@@ -8,6 +8,7 @@
   "devDependencies": {
     "@stellar/stellar-sdk": "17.2.1",
     "buffer": "6.0.3",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "3.25.76"
   }
 }
