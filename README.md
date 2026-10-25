@@ -497,6 +497,7 @@ sorovault list                      # -q, --function, --type, --network, --limit
 sorovault get <contract_id>         # --function, --wasm-hash, --json
 sorovault versions <contract_id>    # --network, --json
 sorovault codegen <contract_id>     # --lang ts|md|examples; -o, --wasm-hash, --package
+sorovault check-client <client.ts>  # --contract, --api, --network; exits non-zero when stale
 sorovault export [file]             # versioned JSON backup (-o)
 sorovault import [file]             # restore a backup (--merge)
 sorovault serve                     # JSON API + browse UI
@@ -701,6 +702,23 @@ if (!assertSameWasm(meta.wasm_hash)) {
 Checking is opt-in: nothing happens unless the application calls it, so
 offline use stays untouched, and a project that commits its client keeps it
 byte-identical until the interface actually changes.
+### Checking a committed client for staleness
+
+Generated clients embed the WASM hash they were built for as the `wasmHash`
+constant next to `contractId`. For a project that commits its client,
+`sorovault check-client` compares that file with SoroVault's live hash and
+with the client the server would generate now, and names the functions
+added, removed or changed when the interface moved:
+
+```console
+$ sorovault check-client zkvote.ts --contract CDZZ…4PAN --api https://sorovault.example
+zkvote.ts: added to the interface
+tally: added to the interface
+zkvote.ts is stale; regenerate it and commit the result
+```
+
+It exits non-zero when anything differs, so a CI job can fail politely with
+a reason instead of failing deep inside a call.
 
 ### Packages
 
