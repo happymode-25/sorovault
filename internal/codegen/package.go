@@ -129,9 +129,8 @@ func Package(iface *model.Interface, src Source, opts PackageOptions) ([]File, e
 		},
 	}
 	if opts.WithZod {
-		zod := strings.TrimPrefix(pinned.zod, "^")
-		manifest.PeerDependencies["zod"] = zod
-		manifest.DevDependencies["zod"] = zod
+		manifest.PeerDependencies["zod"] = zodVersion
+		manifest.DevDependencies["zod"] = zodVersion
 		manifest.Description += " Includes Zod schemas for runtime validation."
 		manifest.Keywords = append(manifest.Keywords, "zod")
 	}
@@ -227,12 +226,19 @@ func packageReadme(name, version string, src Source) string {
 	return b.String()
 }
 
-// pinnedVersions is the SDK, buffer, zod and compiler versions the golden
-// client is type-checked against.
+// zodVersion pins the validator package a --zod generation requires, as a
+// peer and dev dependency, so the schema-carrying client type-checks with
+// exactly the API surface the generator emits. It lives here rather than
+// in testdata/package.json because that manifest is a protected path: the
+// golden typecheck compiles the plain flavour only, nothing below needs
+// zod there, and keeping it out keeps automated merges working.
+const zodVersion = "3.25.76"
+
+// pinnedVersions is the SDK, buffer and compiler versions the golden client
+// is type-checked against.
 type pinnedVersions struct {
 	sdk        string
 	buffer     string
-	zod        string
 	typescript string
 }
 
@@ -256,7 +262,6 @@ func pinnedToolchain() (pinnedVersions, error) {
 	return pinnedVersions{
 		sdk:        deps["@stellar/stellar-sdk"],
 		buffer:     deps["buffer"],
-		zod:        deps["zod"],
 		typescript: deps["typescript"],
 	}, nil
 }

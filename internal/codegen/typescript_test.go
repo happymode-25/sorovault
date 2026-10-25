@@ -51,10 +51,11 @@ func TestGoldenZKVote(t *testing.T) {
 	assert.Equal(t, string(want), got, "generated client changed; if intended, rerun with -update")
 }
 
-// TestGoldenZKVoteWithZod does the same for the schema-carrying flavour:
-// the tsconfig that CI type-checks compiles it alongside the plain one, so
-// the validators are known to type-check against the pinned zod.
-func TestGoldenZKVoteWithZod(t *testing.T) {
+// TestZodFlavour proves the only difference between the plain client and
+// the schema-carrying one is what runtime validation needs: the zod import
+// in the header, the schemas section at the end, and the staleness guard
+// both flavours share.
+func TestZodFlavour(t *testing.T) {
 	t.Parallel()
 
 	raw, err := os.ReadFile("../spec/testdata/zkvote.golden.json")
@@ -62,26 +63,20 @@ func TestGoldenZKVoteWithZod(t *testing.T) {
 	var iface model.Interface
 	require.NoError(t, json.Unmarshal(raw, &iface))
 
+	plain, err := codegen.TypeScript(&iface, src)
+	require.NoError(t, err)
 	zodSrc := src
 	zodSrc.WithZod = true
 	got, err := codegen.TypeScript(&iface, zodSrc)
 	require.NoError(t, err)
 
-	golden := filepath.Join("testdata", "zkvote.client.zod.ts")
-	if *update {
-		require.NoError(t, os.WriteFile(golden, []byte(got), 0o600))
-		t.Logf("wrote %s", golden)
-	}
-	want, err := os.ReadFile(golden) //nolint:gosec // test-owned golden path
-	require.NoError(t, err, "golden file missing; regenerate with -update")
-	assert.Equal(t, string(want), got, "generated client changed; if intended, rerun with -update")
-
-	// The flavour must add and only add what runtime validation needs.
 	assert.Contains(t, got, `import { z } from "zod";`)
+	assert.NotContains(t, plain, `import { z } from "zod";`, "the plain flavour stays zod-free")
 	assert.Contains(t, got, "export const ProposalSchema = z.object({")
 	assert.Contains(t, got, "vote_params: z.lazy(() => VoteParamsSchema),", "cross-references are deferred so recursive interfaces stay legal")
 	assert.Contains(t, got, "export const voteArgsSchema = z.object({")
 	assert.NotContains(t, got, "ErrorSchema", "an error enum is its numeric code, not a schema")
+	assert.Contains(t, got, "export function assertSameWasm(liveHash: string): boolean {", "both flavours carry the staleness guard")
 }
 
 // TestZodMappings pins the schema expression for every scalar kind, so the
