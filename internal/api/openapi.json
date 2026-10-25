@@ -288,7 +288,7 @@
     "/api/contracts/{id}/client.ts": {
       "get": {
         "summary": "A typed TypeScript client",
-        "description": "Generated from the stored interface; builds on @stellar/stellar-sdk >= 14.",
+        "description": "Generated from the stored interface; builds on @stellar/stellar-sdk >= 14. The file embeds the WASM hash it was generated for as the wasmHash export and exposes assertSameWasm(liveHash) to warn on a mismatch; the check is opt-in.",
         "operationId": "getTypeScriptClient",
         "parameters": [
           { "$ref": "#/components/parameters/id" },
