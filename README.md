@@ -105,6 +105,18 @@ Worth writing down, because it is the part that is easy to get wrong:
 The SDK does not parse WASM custom sections, so `internal/wasm` implements the
 small amount of the binary format that step 3 needs.
 
+
+### Link previews and sitemaps
+
+Set `PUBLIC_URL` to the externally reachable origin (for example,
+`https://registry.example.org`) to enable the XML sitemap at `/sitemap.xml`
+and canonical Open Graph URLs on contract pages. Contract pages include
+an escaped description with the network, number of functions, and first
+five function names. Sitemaps use `last_refreshed` for `<lastmod>`, and
+registries with over 49,999 contracts use a sitemap index that links to
+bounded pages of at most 50,000 URLs. When `PUBLIC_URL` is unset the
+sitemap is unavailable (404).
+
 ## Quickstart
 
 The fastest path is Docker, which brings up Postgres, applies migrations and
@@ -167,6 +179,9 @@ be overridden in a values file. `RPC_URL`, `NETWORK_PASSPHRASE`, `HTTP_ADDR`,
 `LOG_LEVEL`, `RPC_TIMEOUT`, and `REFRESH_INTERVAL` are exposed under `config`;
 use `extraEnv` for other environment variables. The server and migration Job
 run non-root with read-only root filesystems.
+
+For production deployment — sizing, backups, upgrades and monitoring — see
+[docs/operations.md](docs/operations.md).
 
 ### Running locally
 
@@ -332,6 +347,9 @@ the same **503**, with the `Retry-After` header, inline on the page.
 | `GET` | `/api/upgrades.atom` | the same upgrades as an Atom 1.0 feed |
 | `GET` | `/healthz` | liveness |
 | `GET` | `/readyz` | readiness: checks Postgres and RPC |
+
+Worked examples for each route, with requests and abbreviated responses, are in
+[docs/api-recipes.md](docs/api-recipes.md).
 
 `POST /api/contracts` returns **201** when the contract is new and **200** when
 it was already registered, so it is safe to retry. Passing `?wasm_hash=` to a
