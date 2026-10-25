@@ -497,6 +497,7 @@ sorovault list                      # -q, --function, --type, --network, --limit
 sorovault get <contract_id>         # --function, --wasm-hash, --json
 sorovault versions <contract_id>    # --network, --json
 sorovault codegen <contract_id>     # --lang ts|md|examples; -o, --wasm-hash, --package
+sorovault check-client <client.ts>  # --contract, --api, --network; exits non-zero when stale
 sorovault export [file]             # versioned JSON backup (-o)
 sorovault import [file]             # restore a backup (--merge)
 sorovault serve                     # JSON API + browse UI
@@ -677,6 +678,24 @@ Type mappings follow the Stellar CLI's own bindings (`u64`→`bigint`,
 `BytesN<32>`→`Buffer`, unions as `{ tag, values }`), so values pass through
 the SDK unchanged. It requires `@stellar/stellar-sdk` 14 or later and
 `buffer`.
+
+### Checking a committed client for staleness
+
+Generated clients embed the WASM hash they were built for as the `wasmHash`
+constant next to `contractId`. For a project that commits its client,
+`sorovault check-client` compares that file with SoroVault's live hash and
+with the client the server would generate now, and names the functions
+added, removed or changed when the interface moved:
+
+```console
+$ sorovault check-client zkvote.ts --contract CDZZ…4PAN --api https://sorovault.example
+zkvote.ts: added to the interface
+tally: added to the interface
+zkvote.ts is stale; regenerate it and commit the result
+```
+
+It exits non-zero when anything differs, so a CI job can fail politely with
+a reason instead of failing deep inside a call.
 
 ### Packages
 
