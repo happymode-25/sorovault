@@ -31,12 +31,12 @@ func TestConfigShowRedactsSecrets(t *testing.T) {
 	cfg := &config.Config{
 		RPCURL:               "https://soroban-testnet.stellar.org",
 		NetworkPassphrase:    "Test SDF Network ; September 2015",
-		DatabaseURL:          "postgres://vault:s3cret-here@db.internal:5432/sorovault",
+		DatabaseURL:          "postgres://vault:s3cret-here@db.internal:5432/sorovault", //nolint:gosec // test fixture, printed only through redaction
 		HTTPAddr:             ":8080",
 		LogFormat:            config.LogFormatJSON,
 		RPCTimeout:           30 * time.Second,
-		RefreshWebhookSecret: "whsec-abcdefg-hmac-material",
-		APITokens:            []string{"0123456789abcdef-one", "0987654321fedcba-two"},
+		RefreshWebhookSecret: "whsec-abcdefg-hmac-material", //nolint:gosec // test fixture for redaction
+		APITokens:            []string{"0123456789abcdef-one", "0987654321fedcba-two"}, //nolint:gosec // test fixtures for redaction
 		RateLimitPerMinute:   30,
 		RateLimitBurst:       10,
 	}

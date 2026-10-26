@@ -81,8 +81,10 @@ func effectiveRows(cfg *config.Config) []effectiveRow {
 	case 0:
 		tokens = ""
 	case 1:
+		//nolint:gosec // a redaction notice naming none of the values
 		tokens = "<redacted> (1 token configured)"
 	default:
+		//nolint:gosec // a redaction notice naming none of the values
 		tokens = fmt.Sprintf("<redacted> (%d tokens configured)", len(cfg.APITokens))
 	}
 
