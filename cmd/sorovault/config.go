@@ -49,7 +49,9 @@ func newConfigShowCmd() *cobra.Command {
 			}
 
 			for _, row := range effectiveRows(cfg) {
-				fmt.Fprintf(w, "%-28s %s\n", row.key, row.value)
+				if _, err := fmt.Fprintf(w, "%-28s %s\n", row.key, row.value); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
