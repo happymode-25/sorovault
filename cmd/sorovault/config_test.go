@@ -28,15 +28,15 @@ func writeYAMLConfigFile(t *testing.T, content string) string {
 func TestConfigShowRedactsSecrets(t *testing.T) {
 	t.Parallel()
 
-	cfg := &config.Config{
+	cfg := &config.Config{ //nolint:gosec // test fixtures; every secret below is printed only through redaction
 		RPCURL:               "https://soroban-testnet.stellar.org",
 		NetworkPassphrase:    "Test SDF Network ; September 2015",
-		DatabaseURL:          "postgres://vault:s3cret-here@db.internal:5432/sorovault", //nolint:gosec // test fixture, printed only through redaction
+		DatabaseURL:          "postgres://vault:s3cret-here@db.internal:5432/sorovault",
 		HTTPAddr:             ":8080",
 		LogFormat:            config.LogFormatJSON,
 		RPCTimeout:           30 * time.Second,
-		RefreshWebhookSecret: "whsec-abcdefg-hmac-material",                            //nolint:gosec // test fixture for redaction
-		APITokens:            []string{"0123456789abcdef-one", "0987654321fedcba-two"}, //nolint:gosec // test fixtures for redaction
+		RefreshWebhookSecret: "whsec-abcdefg-hmac-material",
+		APITokens:            []string{"0123456789abcdef-one", "0987654321fedcba-two"},
 		RateLimitPerMinute:   30,
 		RateLimitBurst:       10,
 	}
